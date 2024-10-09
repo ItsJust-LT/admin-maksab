@@ -5,12 +5,12 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Building2, 
-  TicketCheck, 
-  CreditCard, 
+import {
+  LayoutDashboard,
+  Users,
+  Building2,
+  TicketCheck,
+  CreditCard,
   Settings,
   LogOut
 } from 'lucide-react';
@@ -52,11 +52,7 @@ export function Sidebar() {
         </nav>
       </ScrollArea>
       <div className="p-6 flex items-center">
-        <UserButton afterSignOutUrl="/" />
-        <Button variant="ghost" className="ml-auto">
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
-        </Button>
+
       </div>
     </div>
   );

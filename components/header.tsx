@@ -4,6 +4,7 @@ import { Bell, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { UserButton } from '@clerk/nextjs';
 
 export function Header() {
   return (
@@ -23,6 +24,8 @@ export function Header() {
             <Bell className="h-5 w-5" />
           </Button>
           <ThemeToggle />
+          <UserButton afterSignOutUrl="/"  />
+
         </div>
       </div>
     </header>

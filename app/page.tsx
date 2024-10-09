@@ -1,12 +1,14 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@clerk/nextjs';
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  const { userId } = auth();
+  const user = currentUser();
 
-  if (!userId) {
-    redirect('/sign-in');
+  if (!user) {
+    redirect("/sign-in");
+  } else {
+    redirect("/dashboard");
   }
 
-  redirect('/dashboard');
+  return null;
 }
