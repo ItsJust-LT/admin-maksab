@@ -86,18 +86,7 @@ export async function DashboardOverview() {
           change={organizationChange}
           icon="building2"
         />
-        <StatCard
-          title="Support Tickets"
-          value="78"
-          change="-12"
-          icon="ticketCheck"
-        />
-        <StatCard
-          title="Revenue"
-          value="$45,231.89"
-          change="+20.1%"
-          icon="creditCard"
-        />
+
       </div>
       <Card className="col-span-4">
         <CardHeader>

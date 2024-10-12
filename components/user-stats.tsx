@@ -1,42 +1,82 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip } from 'recharts'
+import * as React from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { PieChart, Pie, Cell, Label } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Users, UserMinus, UserPlus } from "lucide-react"
 
-const data = [
-  { name: 'Active Users', value: 1800 },
-  { name: 'Inactive Users', value: 400 },
-  { name: 'New Users', value: 145 },
-]
+interface UserStatsProps {
+  totalUsers: number
+  activeUsers: number
+  inactiveUsers: number
+  newUsers: number
+}
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28']
+export function UserStats({ totalUsers, activeUsers, inactiveUsers, newUsers }: UserStatsProps) {
+  const chartData = React.useMemo(() => [
+    { name: "Active Users", value: activeUsers, icon: Users, fill: "var(--color-active)" },
+    { name: "Inactive Users", value: inactiveUsers, icon: UserMinus, fill: "var(--color-inactive)" },
+    { name: "New Users", value: newUsers, icon: UserPlus, fill: "var(--color-new)" },
+  ], [activeUsers, inactiveUsers, newUsers])
 
-export function UserStats() {
+  const chartConfig = {
+    users: { label: "Users" },
+    active: { label: "Active", color: "hsl(var(--chart-1))" },
+    inactive: { label: "Inactive", color: "hsl(var(--chart-2))" },
+    new: { label: "New", color: "hsl(var(--chart-3))" },
+  }
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="w-full max-w-3xl mx-auto">
+      <CardHeader className="items-center pb-2">
         <CardTitle>User Statistics</CardTitle>
+        <CardDescription>Active, Inactive, and New Users</CardDescription>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+      <CardContent className="flex flex-col items-center pb-4">
+        <div className="grid grid-cols-3 gap-4 mb-6 w-full">
+          {chartData.map((entry, index) => (
+            <div key={`stat-${index}`} className="flex flex-col items-center justify-center">
+              <entry.icon className="w-5 h-5 mb-1" style={{ color: entry.fill }} />
+              <span className="text-sm font-medium">{entry.name}</span>
+              <span className="text-lg font-bold">{entry.value}</span>
+            </div>
+          ))}
+        </div>
+        <ChartContainer config={chartConfig} className="w-full aspect-square max-h-[300px]">
           <PieChart>
+            <ChartTooltip content={<ChartTooltipContent />} />
             <Pie
-              data={data}
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
               cx="50%"
               cy="50%"
-              labelLine={false}
+              innerRadius={60}
               outerRadius={80}
-              fill="#8884d8"
-              dataKey="value"
+              paddingAngle={2}
             >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
+              <Label
+                content={({ viewBox }) => {
+                  const { cx, cy } = viewBox
+                  return (
+                    <text x={cx} y={cy} fill="hsl(var(--foreground))" textAnchor="middle" dominantBaseline="central">
+                      <tspan x={cx} y={cy - 10} className="text-2xl font-bold">
+                        {totalUsers}
+                      </tspan>
+                      <tspan x={cx} y={cy + 15} className="text-sm fill-muted-foreground">
+                        Total Users
+                      </tspan>
+                    </text>
+                  )
+                }}
+              />
             </Pie>
-            <Tooltip />
-            <Legend />
           </PieChart>
-        </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   )
