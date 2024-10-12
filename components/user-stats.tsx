@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PieChart, Pie, Cell, Label } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Users, UserMinus, UserPlus } from "lucide-react"
+import { PolarViewBox } from 'recharts/types/util/types'
 
 interface UserStatsProps {
   totalUsers: number
@@ -61,13 +62,13 @@ export function UserStats({ totalUsers, activeUsers, inactiveUsers, newUsers }: 
               ))}
               <Label
                 content={({ viewBox }) => {
-                  const { cx, cy } = viewBox
+                  const { cx, cy } = viewBox as PolarViewBox
                   return (
                     <text x={cx} y={cy} fill="hsl(var(--foreground))" textAnchor="middle" dominantBaseline="central">
-                      <tspan x={cx} y={cy - 10} className="text-2xl font-bold">
+                      <tspan x={cx} y={cy || 0 - 10} className="text-2xl font-bold">
                         {totalUsers}
                       </tspan>
-                      <tspan x={cx} y={cy + 15} className="text-sm fill-muted-foreground">
+                      <tspan x={cx} y={cy || 0 + 15} className="text-sm fill-muted-foreground">
                         Total Users
                       </tspan>
                     </text>
