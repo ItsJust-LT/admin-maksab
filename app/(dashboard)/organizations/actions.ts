@@ -3,6 +3,8 @@
 import { clerkClient } from "@/lib/clerk";
 import { revalidatePath } from "next/cache";
 
+export type Subscription = "Free" | "Basic" | "Premium";
+
 export type Organization = {
   id: string;
   name: string;
@@ -10,7 +12,9 @@ export type Organization = {
   membersCount: number;
   createdAt: string;
   imageUrl: string;
-  subscription: "free" | "basic" | "premium";
+  subscription: Subscription;
+  subscriptionEnd: string | null;
+  email: string;
 };
 
 export type OrganizationListParams = {
@@ -44,8 +48,11 @@ export async function getOrganizations({
           createdAt: new Date(org.createdAt).toISOString(),
           imageUrl: org.imageUrl,
           subscription:
-            (org.privateMetadata
-              ?.subscription as Organization["subscription"]) || "free",
+            (org.privateMetadata?.subscription as Subscription) || "Free",
+          subscriptionEnd: org.privateMetadata?.subscriptionEnd as
+            | string
+            | null,
+          email: (org.publicMetadata?.email as string) || "",
         })
       ),
       totalCount,
@@ -59,12 +66,14 @@ export async function getOrganizations({
 export async function updateOrganization(
   organizationId: string,
   name: string,
-  slug: string
+  slug: string,
+  email: string
 ) {
   try {
     await clerkClient.organizations.updateOrganization(organizationId, {
       name,
       slug,
+      publicMetadata: { email },
     });
     revalidatePath("/organizations");
   } catch (error) {
@@ -86,17 +95,44 @@ export async function deleteOrganization(organizationId: string) {
 export async function createOrganization(
   name: string,
   slug: string,
-  createdBy: string
+  createdBy: string,
+  email: string,
+  subscription: Subscription = "Free"
 ) {
   try {
     await clerkClient.organizations.createOrganization({
       name,
       slug,
       createdBy,
+      publicMetadata: { email },
+      privateMetadata: {
+        subscription,
+        subscriptionEnd: null,
+      },
     });
     revalidatePath("/organizations");
   } catch (error) {
     console.error("Error creating organization:", error);
     throw new Error("Failed to create organization");
+  }
+}
+
+export async function updateSubscription(
+  organizationId: string,
+  subscription: Subscription,
+  subscriptionEnd: string | null
+) {
+  try {
+    // This is a dummy request. In a real-world scenario, you'd update the subscription with your payment provider
+    await clerkClient.organizations.updateOrganization(organizationId, {
+      privateMetadata: {
+        subscription,
+        subscriptionEnd,
+      },
+    });
+    revalidatePath("/organizations");
+  } catch (error) {
+    console.error("Error updating subscription:", error);
+    throw new Error("Failed to update subscription");
   }
 }
