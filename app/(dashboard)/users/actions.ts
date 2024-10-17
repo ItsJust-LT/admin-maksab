@@ -1,7 +1,6 @@
 "use server";
 
 import { clerkClient } from "@/lib/clerk";
-import { revalidatePath } from "next/cache";
 
 export type User = {
   id: string;
@@ -19,7 +18,7 @@ export type UserListParams = {
 };
 
 export async function getUsers({
-  limit = 10,
+  limit = 500,
   offset = 0,
   query = "",
 }: UserListParams) {
@@ -65,7 +64,6 @@ export async function addUser(
       password,
       skipPasswordChecks: true,
     });
-    revalidatePath("/users");
   } catch (error) {
     console.error("Error adding user:", error);
     throw new Error("Failed to add user");
@@ -82,7 +80,6 @@ export async function updateUser(
       firstName,
       lastName,
     });
-    revalidatePath("/users");
   } catch (error) {
     console.error("Error updating user:", error);
     throw new Error("Failed to update user");
@@ -92,7 +89,6 @@ export async function updateUser(
 export async function deleteUser(userId: string) {
   try {
     await clerkClient.users.deleteUser(userId);
-    revalidatePath("/users");
   } catch (error) {
     console.error("Error deleting user:", error);
     throw new Error("Failed to delete user");
@@ -102,7 +98,6 @@ export async function deleteUser(userId: string) {
 export async function deleteUsers(userIds: string[]) {
   try {
     await Promise.all(userIds.map((id) => clerkClient.users.deleteUser(id)));
-    revalidatePath("/users");
   } catch (error) {
     console.error("Error deleting users:", error);
     throw new Error("Failed to delete users");

@@ -24,7 +24,7 @@ export function Header() {
             <Bell className="h-5 w-5" />
           </Button>
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/"  />
+          <UserButton />
 
         </div>
       </div>

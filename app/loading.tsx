@@ -5,7 +5,7 @@ import HashLoader from "react-spinners/HashLoader";
 export default function Loading() {
   return (
     <motion.div
-      className="flex flex-col items-center justify-center min-h-screen bg-green-50 dark:bg-zinc-950"
+      className="flex flex-col items-center justify-center min-h-screen  "
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
