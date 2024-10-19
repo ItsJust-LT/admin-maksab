@@ -36,7 +36,7 @@ export async function GET(request: Request) {
             new Date(org.subscriptionEnd) < currentDate
           ) {
             // Update the organization to "Free" subscription if the subscription has ended
-            await updateSubscription(org.id, "Free", null);
+            await updateSubscription(org.id, "free", null);
             console.log(
               `Updated subscription to Free for organization: ${org.name} (ID: ${org.id})`
             );

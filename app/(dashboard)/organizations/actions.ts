@@ -3,7 +3,7 @@
 import { clerkClient } from "@/lib/clerk";
 import { revalidatePath } from "next/cache";
 
-export type Subscription = "Free" | "Basic" | "Premium";
+export type Subscription = "free" | "basic" | "premium";
 
 export type Organization = {
   id: string;
@@ -97,7 +97,7 @@ export async function createOrganization(
   slug: string,
   createdBy: string,
   email: string,
-  subscription: Subscription = "Free"
+  subscription: Subscription = "free"
 ) {
   try {
     await clerkClient.organizations.createOrganization({

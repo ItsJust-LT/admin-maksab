@@ -169,7 +169,6 @@ export function OrganizationsList({ initialOrganizations, initialTotalCount }: O
         data={organizations}
         onSearch={handleSearch}
       />
-      {isLoading && <div className="text-center">Loading...</div>}
       {totalCount > 10 && (
         <div className="flex justify-center">
           <Button onClick={() => fetchOrganizations(searchQuery)}>

@@ -1,10 +1,13 @@
-import { PaymentList } from '@/components/payment-list';
+import { getPayments } from "./actions";
+import { PaymentsList } from "./payments-list";
 
-export default function PaymentsPage() {
+export default async function PaymentsPage() {
+  const { payments, totalCount } = await getPayments({ limit: 10, offset: 0 });
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Payments</h1>
-      <PaymentList />
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold mb-5">Payments</h1>
+      <PaymentsList initialPayments={payments} initialTotalCount={totalCount} />
     </div>
   );
 }
