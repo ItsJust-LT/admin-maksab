@@ -1,12 +1,17 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from 'react'
-import { DataTable } from '@/app/(dashboard)/organizations/data-table'
-import { columns } from '@/app/(dashboard)/organizations/columns'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { getOrganizations, createOrganization, Organization, Subscription } from '@/app/(dashboard)/organizations/actions'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react";
+import { DataTable } from "@/app/(dashboard)/organizations/data-table";
+import { columns } from "@/app/(dashboard)/organizations/columns";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  getOrganizations,
+  createOrganization,
+  Organization,
+  Subscription,
+} from "@/app/(dashboard)/organizations/actions";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -15,70 +20,90 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface OrganizationsListProps {
-  initialOrganizations: Organization[]
-  initialTotalCount: number
+  initialOrganizations: Organization[];
+  initialTotalCount: number;
 }
 
-export function OrganizationsList({ initialOrganizations, initialTotalCount }: OrganizationsListProps) {
-  const [organizations, setOrganizations] = useState<Organization[]>(initialOrganizations)
-  const [totalCount, setTotalCount] = useState(initialTotalCount)
-  const [isLoading, setIsLoading] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [newOrgName, setNewOrgName] = useState("")
-  const [newOrgSlug, setNewOrgSlug] = useState("")
-  const [newOrgEmail, setNewOrgEmail] = useState("")
-  const [newOrgSubscription, setNewOrgSubscription] = useState<Subscription>('Free')
-  const router = useRouter()
+export function OrganizationsList({
+  initialOrganizations,
+  initialTotalCount,
+}: OrganizationsListProps) {
+  const [organizations, setOrganizations] =
+    useState<Organization[]>(initialOrganizations);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgSlug, setNewOrgSlug] = useState("");
+  const [newOrgEmail, setNewOrgEmail] = useState("");
+  const [newOrgSubscription, setNewOrgSubscription] =
+    useState<Subscription>("free");
+  const router = useRouter();
 
   const fetchOrganizations = async (query: string = "") => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const { organizations: fetchedOrganizations, totalCount: fetchedTotalCount } = await getOrganizations({
+      const {
+        organizations: fetchedOrganizations,
+        totalCount: fetchedTotalCount,
+      } = await getOrganizations({
         query,
         limit: 10,
         offset: 0,
-      })
-      setOrganizations(fetchedOrganizations)
-      setTotalCount(fetchedTotalCount)
+      });
+      setOrganizations(fetchedOrganizations);
+      setTotalCount(fetchedTotalCount);
     } catch (error) {
-      console.error("Error fetching organizations:", error)
+      console.error("Error fetching organizations:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchOrganizations(searchQuery)
-  }, [searchQuery])
+    fetchOrganizations(searchQuery);
+  }, [searchQuery]);
 
   const handleSearch = (query: string) => {
-    setSearchQuery(query)
-  }
+    setSearchQuery(query);
+  };
 
   const handleAddOrganization = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
     try {
-      await createOrganization(newOrgName, newOrgSlug, "current_user_id", newOrgEmail, newOrgSubscription) // Replace with actual user ID
-      setIsAddDialogOpen(false)
-      setNewOrgName("")
-      setNewOrgSlug("")
-      setNewOrgEmail("")
-      setNewOrgSubscription('Free')
-      fetchOrganizations(searchQuery)
-      router.refresh()
+      await createOrganization(
+        newOrgName,
+        newOrgSlug,
+        "current_user_id",
+        newOrgEmail,
+        newOrgSubscription
+      ); // Replace with actual user ID
+      setIsAddDialogOpen(false);
+      setNewOrgName("");
+      setNewOrgSlug("");
+      setNewOrgEmail("");
+      setNewOrgSubscription("free");
+      fetchOrganizations(searchQuery);
+      router.refresh();
     } catch (error) {
-      console.error("Error adding organization:", error)
+      console.error("Error adding organization:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-4">
@@ -142,7 +167,9 @@ export function OrganizationsList({ initialOrganizations, initialTotalCount }: O
                   </Label>
                   <Select
                     value={newOrgSubscription}
-                    onValueChange={(value: Subscription) => setNewOrgSubscription(value)}
+                    onValueChange={(value: Subscription) =>
+                      setNewOrgSubscription(value)
+                    }
                   >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select a subscription" />
@@ -177,5 +204,5 @@ export function OrganizationsList({ initialOrganizations, initialTotalCount }: O
         </div>
       )}
     </div>
-  )
+  );
 }
