@@ -5,8 +5,6 @@ import { SupabaseClient } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
-const supabase = SupabaseClient();
-
 export type Payment = {
   id: number;
   organization_id: string;
@@ -27,6 +25,8 @@ export async function getPayments({
   offset = 0,
   query = "",
 }: PaymentListParams) {
+  const supabase = SupabaseClient();
+
   try {
     let queryBuilder = supabase
       .from("payments")
@@ -86,6 +86,8 @@ export async function updatePaymentStatus(
   paymentId: string,
   status: Payment["status"]
 ) {
+  const supabase = SupabaseClient();
+
   try {
     // Fetch the payment to get organization_id, plan, and duration
     const { data: payment, error: fetchError } = await supabase
@@ -222,6 +224,8 @@ async function handleRefundedPayment(
 }
 
 export async function deletePayment(paymentId: string) {
+  const supabase = SupabaseClient();
+
   try {
     const { error } = await supabase
       .from("payments")
