@@ -1,130 +1,335 @@
-"use client"
+"use client";
 
-import { useState } from 'react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, ArrowUpDown } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
+import { createClient } from "@supabase/supabase-js";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Search, Send, Loader2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import {
+  getAllSupportSessions,
+  getSupportMessages,
+  createSupportMessage,
+  updateMessageSeen,
+  updateSupportSessionStatus,
+} from "@/components/support/actions";
+import { SupabaseRealtimeClient } from "@/lib/supabase/realtime";
 
-const tickets = [
-  { id: 1, title: 'Cannot access dashboard', user: 'John Doe', priority: 'High', status: 'Open', created: '2023-06-01' },
-  { id: 2, title: 'Payment failed', user: 'Jane Smith', priority: 'Medium', status: 'In Progress', created: '2023-06-02' },
-  { id: 3, title: 'Feature request: Dark mode', user: 'Bob Johnson', priority: 'Low', status: 'Open', created: '2023-06-03' },
-  { id: 4, title: 'App crashes on startup', user: 'Alice Brown', priority: 'High', status: 'Closed', created: '2023-06-04' },
-  { id: 5, title: 'Need help with API integration', user: 'Charlie Wilson', priority: 'Medium', status: 'Open', created: '2023-06-05' },
-]
+interface SupportTicket {
+  id: string;
+  subject: string;
+  issue: string;
+  created_at: string;
+  status: "active" | "resolved" | "pending";
+  user_id: string;
+}
 
-export function SupportTicketList() {
-  const [sortColumn, setSortColumn] = useState('')
-  const [sortDirection, setSortDirection] = useState('asc')
+interface SupportMessage {
+  id: string;
+  session_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  seen: boolean;
+  seen_at: string | null;
+  is_admin: boolean;
+}
 
-  const handleSort = (column: string) => {
-    if (column === sortColumn) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortColumn(column)
-      setSortDirection('asc')
+const supabase = SupabaseRealtimeClient();
+
+export default function AdminSupportTicketsList() {
+  const { user } = useUser();
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<SupportMessage[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isTicketsLoading, setIsTicketsLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    fetchTickets();
+    const ticketsChannel = supabase
+      .channel("admin-tickets")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "support_sessions" },
+        (payload) => {
+          console.log("Tickets change received:", payload);
+          fetchTickets();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ticketsChannel);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTicketId) {
+      setIsMessagesLoading(true);
+      fetchMessages(activeTicketId);
+      const messagesChannel = supabase
+        .channel(`support-ticket:${activeTicketId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "support_messages",
+            filter: `session_id=eq.${activeTicketId}`,
+          },
+          (payload) => {
+            console.log("Message change received:", payload);
+            fetchMessages(activeTicketId);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(messagesChannel);
+      };
     }
-  }
+  }, [activeTicketId]);
 
-  const sortedTickets = [...tickets].sort((a, b) => {
-    if (a[sortColumn as keyof typeof a] < b[sortColumn as keyof typeof b]) return sortDirection === 'asc' ? -1 : 1
-    if (a[sortColumn as keyof typeof a] > b[sortColumn as keyof typeof b]) return sortDirection === 'asc' ? 1 : -1
-    return 0
-  })
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'high': return 'bg-red-500'
-      case 'medium': return 'bg-yellow-500'
-      case 'low': return 'bg-green-500'
-      default: return 'bg-gray-500'
+  const fetchTickets = async () => {
+    try {
+      setIsTicketsLoading(true);
+      const ticketsData = await getAllSupportSessions();
+      setTickets(ticketsData as SupportTicket[]);
+    } catch (error) {
+      setError("Error fetching tickets. Please try again.");
+    } finally {
+      setIsTicketsLoading(false);
+      setIsLoading(false);
     }
-  }
+  };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'open': return 'bg-blue-500'
-      case 'in progress': return 'bg-yellow-500'
-      case 'closed': return 'bg-green-500'
-      default: return 'bg-gray-500'
+  const fetchMessages = async (ticketId: string) => {
+    try {
+      const messagesData = await getSupportMessages(ticketId);
+      setMessages(messagesData as SupportMessage[]);
+      messagesData.forEach((message: SupportMessage) => {
+        if (!message.seen && !message.is_admin) {
+          updateMessageSeen(message.id);
+        }
+      });
+    } catch (error) {
+      setError("Error fetching messages. Please try again.");
+    } finally {
+      setIsMessagesLoading(false);
     }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !activeTicketId) return;
+
+    try {
+      setIsSending(true);
+      await createSupportMessage(activeTicketId, newMessage, true);
+      setNewMessage("");
+    } catch (error) {
+      setError("Error sending message. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleUpdateStatus = async (ticketId: string, newStatus: string) => {
+    try {
+      await updateSupportSessionStatus(ticketId, newStatus);
+      setTickets((prevTickets) =>
+        prevTickets.map((ticket) =>
+          ticket.id === ticketId
+            ? {
+                ...ticket,
+                status: newStatus as "active" | "resolved" | "pending",
+              }
+            : ticket
+        )
+      );
+    } catch (error) {
+      setError("Error updating ticket status. Please try again.");
+    }
+  };
+
+  const filteredTickets = tickets.filter(
+    (ticket) =>
+      ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.issue.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (!user) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          You must be signed in to access this page.
+        </AlertDescription>
+      </Alert>
+    );
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <Input className="max-w-sm" placeholder="Search tickets..." />
-        <Button>Create Ticket</Button>
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead onClick={() => handleSort('title')} className="cursor-pointer">
-              Title <ArrowUpDown className="ml-2 h-4 w-4" />
-            </TableHead>
-            <TableHead onClick={() => handleSort('user')} className="cursor-pointer">
-              User <ArrowUpDown className="ml-2 h-4 w-4" />
-            </TableHead>
-            <TableHead onClick={() => handleSort('priority')} className="cursor-pointer">
-              Priority <ArrowUpDown className="ml-2 h-4 w-4" />
-            </TableHead>
-            <TableHead onClick={() => handleSort('status')} className="cursor-pointer">
-              Status <ArrowUpDown className="ml-2 h-4 w-4" />
-            </TableHead>
-            <TableHead onClick={() => handleSort('created')} className="cursor-pointer">
-              Created <ArrowUpDown className="ml-2 h-4 w-4" />
-            </TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedTickets.map((ticket) => (
-            <TableRow key={ticket.id}>
-              <TableCell className="font-medium">{ticket.title}</TableCell>
-              <TableCell>{ticket.user}</TableCell>
-              <TableCell>
-                <Badge className={`${getPriorityColor(ticket.priority)} text-white`}>
-                  {ticket.priority}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge className={`${getStatusColor(ticket.status)} text-white`}>
-                  {ticket.status}
-                </Badge>
-              </TableCell>
-              <TableCell>{ticket.created}</TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
+    <Card className="w-full max-w-6xl mx-auto">
+      <CardHeader>
+        <CardTitle>Admin Support Dashboard</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <div className="flex space-x-4">
+          <div className="w-1/3">
+            <div className="mb-4">
+              <Input
+                type="text"
+                placeholder="Search tickets..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <ScrollArea className="h-[600px]">
+              {isTicketsLoading
+                ? Array(5)
+                    .fill(0)
+                    .map((_, i) => (
+                      <Skeleton key={i} className="w-full h-24 mb-2" />
+                    ))
+                : filteredTickets.map((ticket) => (
+                    <Card
+                      key={ticket.id}
+                      className={`mb-2 cursor-pointer hover:bg-accent ${
+                        activeTicketId === ticket.id ? "border-primary" : ""
+                      }`}
+                      onClick={() => setActiveTicketId(ticket.id)}
+                    >
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold">{ticket.subject}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {ticket.issue.substring(0, 50)}...
+                        </p>
+                        <div className="flex justify-between items-center mt-2">
+                          <Badge
+                            variant={
+                              ticket.status === "active"
+                                ? "default"
+                                : ticket.status === "resolved"
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {ticket.status}
+                          </Badge>
+                          <small className="text-muted-foreground">
+                            {formatDistanceToNow(new Date(ticket.created_at), {
+                              addSuffix: true,
+                            })}
+                          </small>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+            </ScrollArea>
+          </div>
+          <div className="w-2/3">
+            {activeTicketId ? (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">
+                    Ticket:{" "}
+                    {tickets.find((t) => t.id === activeTicketId)?.subject}
+                  </h2>
+                  <div className="space-x-2">
+                    <Button
+                      onClick={() =>
+                        handleUpdateStatus(activeTicketId, "active")
+                      }
+                      variant="outline"
+                      size="sm"
+                    >
+                      Mark Active
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem>View details</DropdownMenuItem>
-                    <DropdownMenuItem>Assign ticket</DropdownMenuItem>
-                    <DropdownMenuItem>Change status</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>Close ticket</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  )
+                    <Button
+                      onClick={() =>
+                        handleUpdateStatus(activeTicketId, "resolved")
+                      }
+                      variant="outline"
+                      size="sm"
+                    >
+                      Mark Resolved
+                    </Button>
+                  </div>
+                </div>
+                <ScrollArea className="h-[500px] mb-4">
+                  {isMessagesLoading
+                    ? Array(3)
+                        .fill(0)
+                        .map((_, i) => (
+                          <Skeleton key={i} className="w-3/4 h-16 mb-2" />
+                        ))
+                    : messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`mb-2 p-2 rounded ${
+                            message.is_admin
+                              ? "bg-primary text-primary-foreground ml-auto"
+                              : "bg-secondary"
+                          }`}
+                          style={{ maxWidth: "70%" }}
+                        >
+                          <p>{message.content}</p>
+                          <small className="text-muted-foreground">
+                            {formatDistanceToNow(new Date(message.created_at), {
+                              addSuffix: true,
+                            })}
+                          </small>
+                        </div>
+                      ))}
+                </ScrollArea>
+                <div className="flex gap-2">
+                  <Textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type your message..."
+                    className="flex-grow"
+                  />
+                  <Button onClick={handleSendMessage} disabled={isSending}>
+                    {isSending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="mr-2 h-4 w-4" />
+                    )}
+                    Send
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">
+                  Select a ticket to view details
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
