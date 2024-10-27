@@ -167,8 +167,10 @@ async function handleVerifiedPayment(
     // Update organization's privateMetadata in Clerk
     await clerkClient.organizations.updateOrganization(organizationId, {
       privateMetadata: {
-        subscription: plan,
-        subscriptionEnd: subscriptionEnd.toISOString(), // Convert to ISO format for timestamp
+        subscription: {
+          plan: plan,
+          endDate: subscriptionEnd.toISOString(), // Convert to ISO format for timestamp
+        },
       },
     });
 
