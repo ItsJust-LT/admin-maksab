@@ -1,8 +1,14 @@
-"use client";
+"use client"
 
-import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { ColumnDef } from "@tanstack/react-table"
+import { ArrowUpDown, MoreHorizontal, Eye, Calendar as CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import { Organization, Subscription, updateSubscription, deleteOrganization } from "./actions"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,100 +16,74 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
-import { format } from "date-fns";
-import {
-  Organization,
-  deleteOrganization,
-  updateOrganization,
-  updateSubscription,
-  Subscription,
-} from "./actions";
-import { useState } from "react";
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  AlertDialogFooter,
-  AlertDialogHeader,
-} from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 
 function OrganizationActionsCell({ row }: { row: any }) {
-  const organization = row.original;
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] =
-    useState(false);
-  const [newName, setNewName] = useState(organization.name);
-  const [newSlug, setNewSlug] = useState(organization.slug);
-  const [newEmail, setNewEmail] = useState(organization.email);
-  const [newSubscription, setNewSubscription] = useState<Subscription>(
-    organization.subscription
-  );
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
-    from: organization.subscriptionEnd
-      ? new Date(organization.subscriptionEnd)
-      : undefined,
-    to: undefined,
-  });
-
-  const [isUpdating, setIsUpdating] = useState(false);
-
-  const router = useRouter();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUpdating(true);
-    try {
-      await updateOrganization(organization.id, newName, newSlug, newEmail);
-      setIsEditDialogOpen(false);
-    } catch (error) {
-      console.error("Error updating organization:", error);
-    } finally {
-      setIsUpdating(false);
-      router.refresh();
-    }
-  };
+  const organization = row.original
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [newSubscription, setNewSubscription] = useState<Subscription>(organization.subscription.plan)
+  const [newEndDate, setNewEndDate] = useState<Date | undefined>(
+    organization.subscription.endDate ? new Date(organization.subscription.endDate) : undefined
+  )
+  const [newFreeTrial, setNewFreeTrial] = useState(organization.subscription.freeTrial)
+  const router = useRouter()
 
   const handleSubscriptionUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUpdating(true);
+    e.preventDefault()
+    setIsUpdating(true)
     try {
-      const subscriptionEnd =
-        newSubscription === "free" ? null : dateRange.to?.toISOString() || null;
       await updateSubscription(
         organization.id,
         newSubscription,
-        subscriptionEnd
-      );
-      setIsSubscriptionDialogOpen(false);
+        newSubscription === "vip" ? null : newEndDate?.toISOString() || null,
+        newFreeTrial
+      )
+      setIsDialogOpen(false)
+      router.refresh()
     } catch (error) {
-      console.error("Error updating subscription:", error);
+      console.error("Error updating subscription:", error)
+      alert("Failed to update subscription. Please try again.")
     } finally {
-      setIsUpdating(false);
-      router.refresh();
+      setIsUpdating(false)
     }
-  };
+  }
+
+  const handleDelete = async () => {
+    if (confirm("Are you sure you want to delete this organization?")) {
+      setIsUpdating(true)
+      try {
+        await deleteOrganization(organization.id)
+        router.refresh()
+      } catch (error) {
+        console.error("Error deleting organization:", error)
+        alert("Failed to delete organization. Please try again.")
+      } finally {
+        setIsUpdating(false)
+      }
+    }
+  }
 
   return (
     <>
@@ -122,133 +102,112 @@ function OrganizationActionsCell({ row }: { row: any }) {
             Copy organization ID
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
-            Edit
+          <DropdownMenuItem onClick={() => setIsDialogOpen(true)}>
+            Manage Subscription
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setIsSubscriptionDialogOpen(true)}>
-            Update Subscription
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => deleteOrganization(organization.id)}>
+          <DropdownMenuItem onClick={handleDelete} disabled={isUpdating}>
             Delete organization
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <AlertDialogHeader>
-            <DialogTitle>Edit organization</DialogTitle>
+          <DialogHeader>
+            <DialogTitle>Manage Subscription</DialogTitle>
             <DialogDescription>
-              Make changes to the organization's information here. Click save
-              when you're done.
+              Update the organization's subscription details here.
             </DialogDescription>
-          </AlertDialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="slug" className="text-right">
-                  Slug
-                </Label>
-                <Input
-                  id="slug"
-                  value={newSlug}
-                  onChange={(e) => setNewSlug(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-            </div>
-            <AlertDialogFooter>
-              <Button type="submit" disabled={isUpdating}>
-                {isUpdating ? "Saving..." : "Save changes"}
-              </Button>
-            </AlertDialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={isSubscriptionDialogOpen}
-        onOpenChange={setIsSubscriptionDialogOpen}
-      >
-        <DialogContent className="sm:max-w-[425px]">
-          <AlertDialogHeader>
-            <DialogTitle>Update Subscription</DialogTitle>
-            <DialogDescription>
-              Change the organization's subscription plan and duration.
-            </DialogDescription>
-          </AlertDialogHeader>
+          </DialogHeader>
           <form onSubmit={handleSubscriptionUpdate}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="subscription" className="text-right">
+                <Label htmlFor="plan" className="text-right">
                   Plan
                 </Label>
                 <Select
                   value={newSubscription}
-                  onValueChange={(value: Subscription) =>
+                  onValueChange={(value: Subscription) => {
                     setNewSubscription(value)
-                  }
+                    if (value === "vip") {
+                      setNewEndDate(undefined)
+                    }
+                  }}
                 >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select a plan" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="free">Free</SelectItem>
-                    <SelectItem value="basic">Basic</SelectItem>
+                    <SelectItem value="economic">Economic</SelectItem>
                     <SelectItem value="premium">Premium</SelectItem>
+                    <SelectItem value="vip">VIP</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              {newSubscription !== "free" && (
+              {newSubscription !== "vip" && (
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="duration" className="text-right">
-                    Duration
+                  <Label htmlFor="endDate" className="text-right">
+                    End Date
                   </Label>
-                  <DateRangePicker
-                    className="col-span-3"
-                    value={dateRange}
-                    onChange={(newValue) => {
-                      if (newValue && "from" in newValue) {
-                        setDateRange({ from: newValue.from, to: newValue.to });
-                      } else {
-                        setDateRange({ from: undefined, to: undefined });
-                      }
-                    }}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "col-span-3 justify-start text-left font-normal",
+                          !newEndDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newEndDate ? format(newEndDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={newEndDate}
+                        onSelect={setNewEndDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="freeTrial" className="text-right">
+                  Free Trial
+                </Label>
+                <Switch
+                  id="freeTrial"
+                  checked={newFreeTrial}
+                  onCheckedChange={setNewFreeTrial}
+                  className="col-span-3"
+                />
+              </div>
             </div>
-            <AlertDialogFooter>
+            <DialogFooter>
               <Button type="submit" disabled={isUpdating}>
                 {isUpdating ? "Updating..." : "Update Subscription"}
               </Button>
-            </AlertDialogFooter>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
     </>
-  );
+  )
+}
+
+function ViewButton({ id }: { id: string }) {
+  const router = useRouter()
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => router.push(`/organizations/${id}`)}
+    >
+      <Eye className="h-4 w-4" />
+    </Button>
+  )
 }
 
 export const columns: ColumnDef<Organization>[] = [
@@ -272,18 +231,17 @@ export const columns: ColumnDef<Organization>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "imageUrl",
-    header: "Image",
-    cell: ({ row }) => (
-      <div className="relative w-10 h-10 rounded-full overflow-hidden">
-        <Image
-          src={row.getValue("imageUrl") || "/placeholder.svg"}
-          alt={`${row.getValue("name")} logo`}
-          layout="fill"
-          objectFit="cover"
-        />
-      </div>
-    ),
+    accessorKey: "image",
+    header: "Logo",
+    cell: ({ row }) => {
+      const org = row.original
+      return (
+        <Avatar>
+          <AvatarImage src={org.imageUrl} alt={`${org.name} logo`} />
+          <AvatarFallback>{org.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      )
+    },
   },
   {
     accessorKey: "name",
@@ -293,82 +251,40 @@ export const columns: ColumnDef<Organization>[] = [
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Name
+          Organization
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      );
+      )
     },
   },
   {
     accessorKey: "email",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Email
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-  },
-  {
-    accessorKey: "slug",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Slug
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-  },
-  {
-    accessorKey: "membersCount",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Members
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: "Email",
   },
   {
     accessorKey: "subscription",
     header: "Subscription",
     cell: ({ row }) => {
-      const subscription = row.getValue("subscription") as Subscription;
+      const subscription = row.original.subscription
+      const badgeVariants = {
+        free: "bg-gray-200 text-gray-800",
+        economic: "bg-green-200 text-green-800",
+        premium: "bg-blue-200 text-blue-800",
+        vip: "bg-purple-200 text-purple-800"
+      }
       return (
-        <Badge
-          variant={
-            subscription === "premium"
-              ? "default"
-              : subscription === "basic"
-              ? "secondary"
-              : "outline"
-          }
-        >
-          {subscription}
+        <Badge className={`${badgeVariants[subscription.plan]} font-semibold px-2 py-1 rounded-full`}>
+          {subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)}
         </Badge>
-      );
+      )
     },
   },
   {
-    accessorKey: "subscriptionEnd",
+    accessorKey: "subscription.endDate",
     header: "Subscription End",
     cell: ({ row }) => {
-      const subscriptionEnd = row.getValue("subscriptionEnd") as string | null;
-      return subscriptionEnd
-        ? format(new Date(subscriptionEnd), "PP")
-        : "Lifetime";
+      const subscription = row.original.subscription
+      return subscription.plan === "vip" ? "Lifetime" : (subscription.endDate ? format(new Date(subscription.endDate), "PP") : "N/A")
     },
   },
   {
@@ -382,12 +298,16 @@ export const columns: ColumnDef<Organization>[] = [
           Created At
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      );
+      )
     },
     cell: ({ row }) => format(new Date(row.getValue("createdAt")), "PP"),
+  },
+  {
+    id: "view",
+    cell: ({ row }) => <ViewButton id={row.original.id} />,
   },
   {
     id: "actions",
     cell: OrganizationActionsCell,
   },
-];
+]

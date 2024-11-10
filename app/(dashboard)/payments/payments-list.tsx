@@ -58,9 +58,7 @@ export function PaymentsList({
           onChange={(e) => handleSearch(e.target.value)}
           className="max-w-sm"
         />
-        <Button onClick={() => router.push("/payments/new")}>
-          Add Payment
-        </Button>
+        
       </div>
       <DataTable columns={columns} data={payments} onSearch={handleSearch} />
       {isLoading && <div className="text-center">Loading...</div>}
